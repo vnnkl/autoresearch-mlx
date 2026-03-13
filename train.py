@@ -86,6 +86,10 @@ class CausalSelfAttention(nn.Module):
         q = rotary(q)
         k = rotary(k)
 
+        # QK norm — normalize before attention for training stability
+        q = q * mx.rsqrt(mx.mean(q * q, axis=-1, keepdims=True) + 1e-5)
+        k = k * mx.rsqrt(mx.mean(k * k, axis=-1, keepdims=True) + 1e-5)
+
         # Transpose for attention: (B, N, T, D) — GQA handled natively
         q = q.transpose(0, 2, 1, 3)
         k = k.transpose(0, 2, 1, 3)
