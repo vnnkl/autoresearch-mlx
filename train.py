@@ -164,7 +164,7 @@ N_EMBD = 256            # wider than baseline, good capacity/throughput balance
 
 # Optimization
 BATCH_SIZE = 8           # device batch size
-LEARNING_RATE = 1e-3     # base LR
+LEARNING_RATE = 0.04     # match solo run matrix LR — much more aggressive
 WEIGHT_DECAY = 0.05      # lower WD proven better in solo runs
 WARMUP_RATIO = 0.0       # no warmup (proven better)
 WARMDOWN_RATIO = 0.2     # shorter warmdown
