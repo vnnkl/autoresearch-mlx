@@ -268,6 +268,7 @@ class AdamW:
             self.param_config[path] = cfg
 
         self.initial_lrs = {p: c["lr"] for p, c in self.param_config.items()}
+        self.initial_wds = {p: c["weight_decay"] for p, c in self.param_config.items()}
 
     def _set_path_value(self, model, path, value):
         parts = path.split(".")
@@ -327,6 +328,10 @@ class AdamW:
         for path, config in self.param_config.items():
             config["lr"] = self.initial_lrs[path] * multiplier
 
+    def set_wd_multiplier(self, multiplier):
+        for path, config in self.param_config.items():
+            config["weight_decay"] = self.initial_wds[path] * multiplier
+
     @property
     def state(self):
         arrays = []
@@ -351,7 +356,7 @@ MATRIX_LR = 0.04
 EMBEDDING_LR = 2.0
 UNEMBEDDING_LR = 0.004
 SCALAR_LR = 0.5
-WEIGHT_DECAY = 0.04
+WEIGHT_DECAY = 0.15
 ADAM_BETAS = (0.65, 0.9)
 WARMUP_RATIO = 0.0
 WARMDOWN_RATIO = 0.4
@@ -438,10 +443,11 @@ while True:
     loss, grads = loss_and_grad(model, x, y)
     mx.eval(loss, grads)
 
-    # Update LR schedule
+    # Update LR schedule + decaying WD
     progress = min(total_training_time / TIME_BUDGET, 1.0)
     lr_mult = get_lr_multiplier(progress)
     optimizer.set_lr_multiplier(lr_mult)
+    optimizer.set_wd_multiplier(1.0 - progress)
 
     # Apply gradients
     optimizer.update(model, grads)
