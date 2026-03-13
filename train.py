@@ -21,6 +21,20 @@ def norm(x):
     return x * mx.rsqrt(mx.mean(x * x, axis=-1, keepdims=True) + 1e-5)
 
 
+def create_additive_causal_mask(seq_len, dtype=mx.float32):
+    indices = mx.arange(seq_len)
+    blocked = indices[None, :] > indices[:, None]
+    return mx.where(blocked, mx.array(float("-inf"), dtype=dtype), mx.array(0.0, dtype=dtype))
+
+
+def create_sliding_window_mask(seq_len, window_size, dtype=mx.float32):
+    indices = mx.arange(seq_len)
+    causal = indices[None, :] > indices[:, None]
+    too_far = (indices[:, None] - indices[None, :]) >= window_size
+    blocked = causal | too_far
+    return mx.where(blocked, mx.array(float("-inf"), dtype=dtype), mx.array(0.0, dtype=dtype))
+
+
 @dataclass
 class GPTConfig:
     sequence_len: int = 2048
@@ -29,6 +43,7 @@ class GPTConfig:
     n_head: int = 6
     n_kv_head: int = 6
     n_embd: int = 384
+    window_pattern: str = "LLLL"
 
 
 class RotaryEmbedding:
@@ -72,7 +87,7 @@ class CausalSelfAttention(nn.Module):
 
         self.scale = self.head_dim ** -0.5
 
-    def __call__(self, x, rotary, ve=None):
+    def __call__(self, x, rotary, ve=None, mask=None):
         B, T, C = x.shape
         q = self.c_q(x).reshape(B, T, self.n_head, self.head_dim)
         k = self.c_k(x).reshape(B, T, self.n_kv_head, self.head_dim)
@@ -95,7 +110,8 @@ class CausalSelfAttention(nn.Module):
         k = k.transpose(0, 2, 1, 3)
         v = v.transpose(0, 2, 1, 3)
 
-        y = mx.fast.scaled_dot_product_attention(q, k, v, scale=self.scale, mask="causal")
+        attn_mask = mask if mask is not None else "causal"
+        y = mx.fast.scaled_dot_product_attention(q, k, v, scale=self.scale, mask=attn_mask)
 
         y = y.transpose(0, 2, 1, 3).reshape(B, T, -1)
         return self.c_proj(y)
@@ -121,8 +137,8 @@ class Block(nn.Module):
         self.attn = CausalSelfAttention(config)
         self.mlp = MLP(config)
 
-    def __call__(self, x, rotary, ve=None):
-        x = x + self.attn(norm(x), rotary, ve)
+    def __call__(self, x, rotary, ve=None, mask=None):
+        x = x + self.attn(norm(x), rotary, ve, mask)
         x = x + self.mlp(norm(x))
         return x
 
@@ -146,6 +162,27 @@ class GPT(nn.Module):
         # Residual scaling (learnable per-layer)
         self.resid_lambdas = mx.ones((config.n_layer,), dtype=mx.float32)
         self.x0_lambdas = mx.full((config.n_layer,), 0.1, dtype=mx.float32)
+
+        # Sliding window masks (SSSL pattern)
+        long_window = config.sequence_len
+        short_window = long_window // 2
+        pattern = config.window_pattern
+        window_sizes = [
+            long_window if pattern[i % len(pattern)] == "L" else short_window
+            for i in range(config.n_layer)
+        ]
+        window_sizes[-1] = long_window  # last layer always full attention
+        self._masks = []
+        mask_cache = {}
+        for ws in window_sizes:
+            if ws >= config.sequence_len:
+                self._masks.append(None)  # use optimized "causal" string
+            else:
+                if ws not in mask_cache:
+                    mask_cache[ws] = create_sliding_window_mask(config.sequence_len, ws)
+                self._masks.append(mask_cache[ws])
+        if mask_cache:
+            mx.eval(*mask_cache.values())
 
     def init_weights(self):
         n_embd = self.config.n_embd
@@ -182,7 +219,7 @@ class GPT(nn.Module):
         for i, block in enumerate(self.blocks):
             x = self.resid_lambdas[i] * x + self.x0_lambdas[i] * x0
             ve = self.value_embeds[str(i)](idx)
-            x = block(x, self.rotary, ve)
+            x = block(x, self.rotary, ve, self._masks[i])
         x = norm(x)
         logits = self.lm_head(x)
         # Logit capping — prevents explosion
@@ -311,13 +348,13 @@ N_EMBD = 256
 # Optimization (per-param-group LRs from solo run)
 BATCH_SIZE = 8
 MATRIX_LR = 0.04
-EMBEDDING_LR = 1.5
+EMBEDDING_LR = 2.0
 UNEMBEDDING_LR = 0.004
 SCALAR_LR = 0.5
 WEIGHT_DECAY = 0.04
 ADAM_BETAS = (0.65, 0.9)
 WARMUP_RATIO = 0.0
-WARMDOWN_RATIO = 0.2
+WARMDOWN_RATIO = 0.4
 FINAL_LR_FRAC = 0.0
 
 # ---------------------------------------------------------------------------
