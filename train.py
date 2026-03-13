@@ -121,7 +121,7 @@ class MLP(nn.Module):
     """Squared ReLU MLP — simpler and fewer params than SwiGLU."""
     def __init__(self, config):
         super().__init__()
-        hidden = 3 * config.n_embd  # 3x (not 4x) since no gate projection
+        hidden = 4 * config.n_embd  # 4x standard GPT ratio
         self.c_fc = nn.Linear(config.n_embd, hidden, bias=False)
         self.c_proj = nn.Linear(hidden, config.n_embd, bias=False)
 
@@ -357,7 +357,7 @@ EMBEDDING_LR = 2.0
 UNEMBEDDING_LR = 0.004
 SCALAR_LR = 0.5
 WEIGHT_DECAY = 0.25
-ADAM_BETAS = (0.8, 0.95)
+ADAM_BETAS = (0.65, 0.9)
 WARMUP_RATIO = 0.0
 WARMDOWN_RATIO = 0.4
 FINAL_LR_FRAC = 0.0
