@@ -438,7 +438,7 @@ N_EMBD = 256
 
 # Optimization (per-param-group LRs from solo run)
 BATCH_SIZE = 8
-MATRIX_LR = 0.02
+MATRIX_LR = 0.01
 EMBEDDING_LR = 2.0
 UNEMBEDDING_LR = 0.004
 SCALAR_LR = 0.5
