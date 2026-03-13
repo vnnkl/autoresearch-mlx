@@ -438,14 +438,14 @@ N_EMBD = 256
 
 # Optimization (per-param-group LRs from solo run)
 BATCH_SIZE = 8
-MATRIX_LR = 0.04
-EMBEDDING_LR = 0.6
+MATRIX_LR = 0.03
+EMBEDDING_LR = 0.3
 UNEMBEDDING_LR = 0.004
-SCALAR_LR = 0.5
-WEIGHT_DECAY = 0.1
+SCALAR_LR = 0.25
+WEIGHT_DECAY = 0.025
 ADAM_BETAS = (0.8, 0.95)
 WARMUP_RATIO = 0.2
-WARMDOWN_RATIO = 0.4
+WARMDOWN_RATIO = 0.5
 FINAL_LR_FRAC = 0.0
 
 # ---------------------------------------------------------------------------
