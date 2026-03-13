@@ -311,12 +311,8 @@ class AdamW:
         denom = mx.sqrt(s["v"] / bias2) + eps
         step_size = lr / bias1
 
-        update = step_size * (s["m"] / denom)
-        # Cautious weight decay: only decay when grad and param agree in sign
-        if wd > 0:
-            mask = (grad_f32 * param_f32 >= 0).astype(mx.float32)
-            param_f32 = param_f32 - lr * wd * mask * param_f32
-        param_f32 = param_f32 - update
+        param_f32 = param_f32 * (1 - lr * wd)
+        param_f32 = param_f32 - step_size * (s["m"] / denom)
         return param_f32.astype(param.dtype)
 
     def update(self, model, grads):
@@ -492,7 +488,8 @@ total_tokens = step * total_batch_tokens
 
 # Final eval
 print("Evaluating...")
-val_bpb = evaluate_bpb(model, tokenizer, BATCH_SIZE)
+EVAL_BATCH_SIZE = 128
+val_bpb = evaluate_bpb(model, tokenizer, EVAL_BATCH_SIZE)
 
 # Final summary
 t_end = time.time()
