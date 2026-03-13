@@ -154,13 +154,13 @@ class GPT(nn.Module):
 
 # Model architecture
 DEPTH = 6               # number of transformer layers
-N_HEAD = 6              # attention heads
-N_KV_HEAD = 6           # key/value heads (set < N_HEAD for GQA)
-N_EMBD = 192            # embedding dimension
+N_HEAD = 4              # attention heads (256/4=64 head dim)
+N_KV_HEAD = 4           # key/value heads
+N_EMBD = 256            # wider model, more capacity
 
 # Optimization
-BATCH_SIZE = 16          # larger batch for faster throughput
-LEARNING_RATE = 1e-3     # higher LR for small model
+BATCH_SIZE = 8           # smaller batch for more steps with bigger model
+LEARNING_RATE = 1e-3     # same LR as baseline
 WEIGHT_DECAY = 0.1       # AdamW weight decay
 WARMUP_RATIO = 0.05      # fraction of time budget for LR warmup
 WARMDOWN_RATIO = 0.5     # fraction for LR cooldown
