@@ -153,19 +153,19 @@ class GPT(nn.Module):
 # ---------------------------------------------------------------------------
 
 # Model architecture
-DEPTH = 6               # number of transformer layers
-N_HEAD = 4              # attention heads (256/4=64 head dim)
-N_KV_HEAD = 4           # key/value heads
-N_EMBD = 256            # wider model, more capacity
+DEPTH = 4               # fewer layers = more steps on MLX (proven sweet spot)
+N_HEAD = 2              # 256/2 = 128 head dim
+N_KV_HEAD = 1           # multi-query attention (massive throughput gain)
+N_EMBD = 256            # wider than baseline, good capacity/throughput balance
 
 # Optimization
-BATCH_SIZE = 8           # smaller batch for more steps with bigger model
-LEARNING_RATE = 1e-3     # same LR as baseline
-WEIGHT_DECAY = 0.1       # AdamW weight decay
-WARMUP_RATIO = 0.05      # fraction of time budget for LR warmup
-WARMDOWN_RATIO = 0.5     # fraction for LR cooldown
-FINAL_LR_FRAC = 0.1      # final LR as fraction of peak
-GRAD_ACCUM_STEPS = 1     # no accumulation needed with larger batch
+BATCH_SIZE = 8           # device batch size
+LEARNING_RATE = 1e-3     # base LR
+WEIGHT_DECAY = 0.05      # lower WD proven better in solo runs
+WARMUP_RATIO = 0.0       # no warmup (proven better)
+WARMDOWN_RATIO = 0.2     # shorter warmdown
+FINAL_LR_FRAC = 0.0      # decay to zero
+GRAD_ACCUM_STEPS = 2     # effective batch = 16384 tokens (8*2048*1)
 
 # ---------------------------------------------------------------------------
 # Setup
