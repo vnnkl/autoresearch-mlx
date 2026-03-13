@@ -121,7 +121,7 @@ class MLP(nn.Module):
     """Squared ReLU MLP — simpler and fewer params than SwiGLU."""
     def __init__(self, config):
         super().__init__()
-        hidden = 4 * config.n_embd  # 4x standard GPT ratio
+        hidden = 3 * config.n_embd  # 3x (not 4x) since no gate projection
         self.c_fc = nn.Linear(config.n_embd, hidden, bias=False)
         self.c_proj = nn.Linear(hidden, config.n_embd, bias=False)
 
@@ -311,8 +311,12 @@ class AdamW:
         denom = mx.sqrt(s["v"] / bias2) + eps
         step_size = lr / bias1
 
-        param_f32 = param_f32 * (1 - lr * wd)
-        param_f32 = param_f32 - step_size * (s["m"] / denom)
+        update = step_size * (s["m"] / denom)
+        # Cautious weight decay: only decay when grad and param agree in sign
+        if wd > 0:
+            mask = (grad_f32 * param_f32 >= 0).astype(mx.float32)
+            param_f32 = param_f32 - lr * wd * mask * param_f32
+        param_f32 = param_f32 - update
         return param_f32.astype(param.dtype)
 
     def update(self, model, grads):
