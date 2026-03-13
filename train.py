@@ -486,7 +486,7 @@ val_bpb = evaluate_bpb(model, tokenizer, BATCH_SIZE)
 
 # Final summary
 t_end = time.time()
-peak_mem_bytes = mx.metal.get_peak_memory()
+peak_mem_bytes = mx.get_peak_memory()
 peak_mem_mb = peak_mem_bytes / 1024 / 1024
 
 print("---")
