@@ -82,7 +82,7 @@ class CausalSelfAttention(nn.Module):
         self.c_proj = nn.Linear(self.n_embd, self.n_embd, bias=False)
 
         # Value embedding gate (32 channels from input → n_kv_head gates)
-        self.ve_gate_channels = 64
+        self.ve_gate_channels = 128
         self.ve_gate = nn.Linear(self.ve_gate_channels, self.n_kv_head, bias=False)
 
         self.scale = self.head_dim ** -0.5
