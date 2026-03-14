@@ -102,8 +102,8 @@ class CausalSelfAttention(nn.Module):
         # Apply rotary embeddings then QK norm (post-RoPE norm, proven better)
         q = rotary(q)
         k = rotary(k)
-        q = norm(q)
-        k = norm(k)
+        q = norm(q) * 1.10
+        k = norm(k) * 1.10
 
         # Transpose for attention: (B, N, T, D)
         q = q.transpose(0, 2, 1, 3)
