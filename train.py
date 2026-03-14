@@ -161,7 +161,7 @@ class GPT(nn.Module):
 
         # Residual scaling (learnable per-layer)
         self.resid_lambdas = mx.ones((config.n_layer,), dtype=mx.float32)
-        self.x0_lambdas = mx.full((config.n_layer,), 0.1, dtype=mx.float32)
+        self.x0_lambdas = mx.full((config.n_layer,), 0.05, dtype=mx.float32)
 
         # Sliding window masks (SSSL pattern)
         long_window = config.sequence_len
@@ -210,7 +210,7 @@ class GPT(nn.Module):
 
         # Residual lambdas
         self.resid_lambdas = mx.ones((self.config.n_layer,), dtype=mx.float32)
-        self.x0_lambdas = mx.full((self.config.n_layer,), 0.1, dtype=mx.float32)
+        self.x0_lambdas = mx.full((self.config.n_layer,), 0.05, dtype=mx.float32)
 
     def __call__(self, idx, targets=None):
         x = self.wte(idx)

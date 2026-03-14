@@ -40,7 +40,7 @@ MLX `optimizer.apply_gradients(grads, model)` silently does nothing.
 Correct: `optimizer.update(model, grads)` + `mx.eval(model.parameters(), optimizer.state)`.
 Now using custom AdamW class with per-param-group LR (no built-in MLX optimizer).
 
-## Current best: val_bpb = 1.285 (xl tier best, tuned LRs)
+## Current best: val_bpb = 1.277 (xl tier best, fully tuned)
 
 ## Experiment results (this session)
 | Experiment | val_bpb | Steps | Params | Status |
@@ -114,15 +114,43 @@ Now using custom AdamW class with per-param-group LR (no built-in MLX optimizer)
 | Constant WD (no decay) | 1.302 | 2230 | 10.7M | discard |
 | DEPTH=6 (Muon) | 1.288 | 1640 | 14.0M | discard (too few steps) |
 | SCALAR_LR=1.0 | 1.289 | 2242 | 10.7M | discard |
-| **SCALAR_LR=0.25** | **1.285** | 2237 | 10.7M | **NEW BEST** |
+| **SCALAR_LR=0.25** | **1.285** | 2237 | 10.7M | **keep** |
 | SCALAR_LR=0.125 | 1.287 | 2215 | 10.7M | discard |
+| SCALAR_LR=0.375 | 1.286 | 2168 | 10.7M | discard (tied) |
+| --- WD + schedule re-tune (base=SCALAR_LR=0.25, Muon=0.03, emb=0.3) --- | | | | |
+| WD=0.05 | 1.282 | 2231 | 10.7M | keep |
+| WD=0.15 | 1.292 | 2242 | 10.7M | discard |
+| **WD=0.025** | **1.280** | 2254 | 10.7M | **keep** |
+| WD=0.0 | 1.281 | 2237 | 10.7M | discard |
+| WD=0.0125 | 1.280 | 2234 | 10.7M | tied |
+| WARMDOWN=0.3 (WD=0.025) | 1.281 | 2244 | 10.7M | discard |
+| **WARMDOWN=0.5** | **1.278** | 2273 | 10.7M | **keep** |
+| WARMDOWN=0.6 | 1.279 | 2265 | 10.7M | discard |
+| --- Muon momentum/misc tuning --- | | | | |
+| muon_momentum_end=0.9 | 1.285 | 2130 | 10.7M | discard |
+| muon_momentum_end=0.99 | 1.279 | 2262 | 10.7M | discard |
+| muon_ramp_steps=150 | 1.278 | 2274 | 10.7M | tied |
+| muon_ramp_steps=600 | 1.279 | 2257 | 10.7M | discard |
+| muon_momentum_start=0.7 | 1.279 | 2252 | 10.7M | discard |
+| muon_momentum_start=0.9 | 1.280 | 2249 | 10.7M | discard |
+| ADAM_BETAS=(0.85,0.95) | 1.279 | 2236 | 10.7M | discard |
+| ADAM_BETAS=(0.8,0.99) | 1.278 | 2263 | 10.7M | neutral |
+| logit_cap=10 | 1.278 | 2273 | 10.7M | neutral |
+| logit_cap=20 | 1.279 | 2273 | 10.7M | discard |
+| Gated ReLU² MLP (param-matched) | 1.287 | 2126 | 10.7M | discard (slower) |
+| **x0_lambdas init=0.05** (from 0.1) | **1.277** | 2278 | 10.7M | **NEW BEST** |
+| x0_lambdas init=0.02 | 1.277 | 2267 | 10.7M | tied |
+| x0_lambdas init=0.2 | 1.280 | 2242 | 10.7M | discard |
+| resid_lambdas init=0.8 | 1.285 | 2163 | 10.7M | discard |
+| VE gate channels=16 | 1.280 | 2262 | 10.7M | discard |
+| VE gate channels=64 | 1.279 | 2254 | 10.7M | discard |
 
 ## Key learnings
 1. Per-param-group LR is the BIGGEST single improvement (1.614 -> 1.366, 15.3%)
 2. Value Embeddings helped (~4% from 1.686 -> 1.614)
 3. Wider model HURTS on MLX — fewer steps outweighs capacity gain
 4. SSSL sliding window hurts with only 4 layers
-5. **Muon optimizer is a game changer**: 1.342 (AdamW best) -> 1.285 (Muon best), 4.2%
+5. **Muon optimizer is a game changer**: 1.342 (AdamW best) -> 1.277 (Muon best), 4.8%
 6. Muon needs full config re-tune: lower WD (0.1 vs 0.25), lower emb_lr (0.3 vs 2.0), higher betas (0.8/0.95 vs 0.65/0.9), 20% warmup
 7. **Hyperparams interact**: Muon LR optimal shifted from 0.01→0.04→0.03 as other params changed. Always re-sweep after big changes
 10. SCALAR_LR for resid/x0 lambdas: 0.25 beats 0.5 (lower LR for scalar params helps)
@@ -133,30 +161,30 @@ Now using custom AdamW class with per-param-group LR (no built-in MLX optimizer)
 - DEPTH=4, N_EMBD=256, N_HEAD=2, N_KV_HEAD=1, BS=8
 - Muon for 2D block params: MATRIX_LR=0.03, momentum ramp 0.85->0.95
 - AdamW for rest: EMBEDDING_LR=0.3, UNEMBEDDING_LR=0.004, SCALAR_LR=0.25
-- ADAM_BETAS=(0.8, 0.95), WD=0.1 (linear decay), WARMUP=0.2, WARMDOWN=0.4
+- ADAM_BETAS=(0.8, 0.95), WD=0.025 (linear decay), WARMUP=0.2, WARMDOWN=0.5
+- x0_lambdas init=0.05
 - Architecture: VE (all layers), squared ReLU, zero-init c_proj, logit cap 15, resid+x0 lambdas
 - EVAL_BATCH_SIZE=128
 - ~10.7M params, ~2200 steps/5min, ~130k tok/sec
 
 ## Solo run reference
 - Repo: /Users/constantin/Code/autoresearch (val_bpb=1.337)
-- We now beat solo run best: 1.285 vs 1.337 (3.9% better!)
+- We now beat solo run best: 1.277 vs 1.337 (4.5% better!)
 
 ## Tuning approach
 Binary search, not incremental. Jump wide to bracket (e.g. 0.4 → 0.8), then bisect.
 
 ## Next experiments to try
-1. SCALAR_LR bisect: try 0.375 (between 0.25 and 0.5)
-2. WD sweep with new LRs (try 0.05, 0.15 — currently 0.1)
-3. WARMDOWN_RATIO re-sweep (try 0.3, 0.5 — currently 0.4, may shift with new LRs)
-4. Muon momentum end: try 0.9, 0.99 (currently 0.95)
-5. Muon ramp steps: try 150, 600 (currently 300)
-6. Logit cap: try 10, 20 (currently 15)
-7. Re-tune ADAM_BETAS with new config (try 0.85/0.95, 0.8/0.99)
+1. MLP hidden multiplier: try 2x, 4x (currently 3x) — trade params vs steps
+2. N_HEAD=4 with N_KV_HEAD=1 or 2 — more attention heads
+3. Embedding init scale sweep (currently 1.0)
+4. QK norm removal (is post-RoPE norm still helping with Muon?)
+5. Batch size sweep: BS=4, BS=16 (currently 8)
+6. Try removing VE from some layers to save compute for more steps
 
 ## Swarm state
 - Global best: 0.961639 by helios (CUDA+Muon)
-- xl tier best: 1.285 by M5Max (us!)
+- xl tier best: 1.277 by M5Max (us!)
 - Medium tier best: 1.094 by cipher
 
 ## Files
