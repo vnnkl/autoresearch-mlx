@@ -223,7 +223,7 @@ class GPT(nn.Module):
         x = norm(x)
         logits = self.lm_head(x)
         # Logit capping — prevents explosion
-        logits = 15.0 * mx.tanh(logits / 15.0)
+        logits = 13.0 * mx.tanh(logits / 13.0)
         return logits
 
     def num_params(self):
