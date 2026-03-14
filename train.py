@@ -290,7 +290,7 @@ class MuonAdamW:
                        "eps": 1e-10, "weight_decay": 0.0}
             elif "value_embeds" in path:
                 self.adam_config[path] = {"lr": embedding_lr * dmodel_lr_scale, "betas": adam_betas,
-                       "eps": 1e-10, "weight_decay": 0.0}
+                       "eps": 1e-10, "weight_decay": 0.01}
             elif "lm_head" in path:
                 self.adam_config[path] = {"lr": unembedding_lr * dmodel_lr_scale, "betas": adam_betas,
                        "eps": 1e-10, "weight_decay": 0.0}
