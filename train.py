@@ -121,7 +121,7 @@ class MLP(nn.Module):
     """Squared ReLU MLP — simpler and fewer params than SwiGLU."""
     def __init__(self, config):
         super().__init__()
-        hidden = 3 * config.n_embd  # 3x (not 4x) since no gate projection
+        hidden = 4 * config.n_embd  # 4x expansion
         self.c_fc = nn.Linear(config.n_embd, hidden, bias=False)
         self.c_proj = nn.Linear(hidden, config.n_embd, bias=False)
 
